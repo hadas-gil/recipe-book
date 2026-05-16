@@ -1,8 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const PARSE_PROMPT = `אתה עוזר שמחלץ מתכונים מטקסט.
 החזר תמיד JSON תקין בלבד, ללא הסברים נוספים, בפורמט הזה:
@@ -69,9 +66,21 @@ export async function POST(request) {
       return Response.json({ error: 'לא נמצא תוכן' }, { status: 400 });
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const result = await model.generateContent(`${PARSE_PROMPT}\n\nהמתכון:\n${content.slice(0, 12000)}`);
-    const raw = result.response.text().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${PARSE_PROMPT}\n\nהמתכון:\n${content.slice(0, 12000)}` }] }],
+          generationConfig: { temperature: 0.2 },
+        }),
+      }
+    );
+    if (!geminiRes.ok) throw new Error(`Gemini error: ${geminiRes.status}`);
+    const geminiData = await geminiRes.json();
+    const raw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+      ?.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const recipe = JSON.parse(raw);
 
     if (!recipe.title || !recipe.ingredients || !recipe.steps) {
