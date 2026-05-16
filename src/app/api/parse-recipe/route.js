@@ -67,7 +67,7 @@ export async function POST(request) {
     }
 
     const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -77,7 +77,10 @@ export async function POST(request) {
         }),
       }
     );
-    if (!geminiRes.ok) throw new Error(`Gemini error: ${geminiRes.status}`);
+    if (!geminiRes.ok) {
+      const errBody = await geminiRes.text();
+      throw new Error(`Gemini ${geminiRes.status}: ${errBody}`);
+    }
     const geminiData = await geminiRes.json();
     const raw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
       ?.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
